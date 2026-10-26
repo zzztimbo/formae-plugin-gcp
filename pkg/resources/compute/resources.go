@@ -184,6 +184,21 @@ func globalForwardingRuleResponseTransformer(apiResponse map[string]interface{},
 	return apiResponse
 }
 
+// globalForwardingRuleRequestTransformer normalizes the portRange field in user input.
+// Users may write "80" or "80-80" in Pkl; GCP accepts both but returns "80-80".
+// This normalizes "80-80" -> "80" in the request so formae diff matches user intent.
+func globalForwardingRuleRequestTransformer(props map[string]interface{}, _ base.TransformContext) (map[string]interface{}, error) {
+	if portRange, ok := props["portRange"].(string); ok {
+		if strings.Contains(portRange, "-") {
+			parts := strings.Split(portRange, "-")
+			if len(parts) == 2 && parts[0] == parts[1] {
+				props["portRange"] = parts[0]
+			}
+		}
+	}
+	return props, nil
+}
+
 func init() {
 	// Create the registry with common Compute API configurations
 	computeRegistry = base.NewResourceRegistry(
@@ -1221,7 +1236,7 @@ func init() {
 					LocationInURL: false,
 				},
 			},
-			RequestTransformer:  nil,
+			RequestTransformer:  base.RequestTransformerFunc(globalForwardingRuleRequestTransformer),
 			ResponseTransformer: base.ResponseTransformerFunc(globalForwardingRuleResponseTransformer),
 		},
 
